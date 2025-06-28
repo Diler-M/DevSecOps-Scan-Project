@@ -24,7 +24,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Pull Docker Image
-        run: docker pull docker pull dilerm13/dockerproject_28-06-25:latest
+        run: docker pull dilerm13/dockerproject_28-06-25:latest
 
       - name: Install Trivy
         run: |
