@@ -29,7 +29,9 @@ jobs:
       - name: Create Jira Issue for IaC Scan Findings
         uses: atlassian/gajira-create@v3
         with:
+          useEnvVars: true
           project: ${{ secrets.JIRA_PROJECT_KEY }}
+          issuetype: Bug
           summary: "[IaC Security Scan] Findings on ${{ github.repository }}@${{ github.ref_name }}"
           description: |
             The automated IaC security scan using Trivy has completed.

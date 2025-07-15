@@ -61,7 +61,9 @@ jobs:
     - name: Create Jira Issue for SCA Scan Findings
       uses: atlassian/gajira-create@v3
       with:
+          useEnvVars: true
           project: ${{ secrets.JIRA_PROJECT_KEY }}
+          issuetype: 'Task'
           summary: "[SCA Scan] Findings on ${{ github.repository }}@${{ github.ref_name }}"
           description: |
             The automated SCA image scan using Trivy has completed.
