@@ -40,7 +40,7 @@ jobs:
            ignore-unfixed: true
 
       - name: Upload Trivy IaC Report Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
            name: trivy-iac-report
            path: trivy-iac-report.json

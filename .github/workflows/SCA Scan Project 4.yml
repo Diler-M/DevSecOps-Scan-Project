@@ -52,7 +52,7 @@ jobs:
             ignore-unfixed: true
  
     - name: Upload Trivy Image Report Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: trivy-image-report
         path: trivy-image-report.json
