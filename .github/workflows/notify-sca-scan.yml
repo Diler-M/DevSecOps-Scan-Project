@@ -16,45 +16,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Download Trivy Image Scan Artifact
-        uses: actions/github-script@v6
+        uses: actions/download-artifact@v4
         with:
-          script: |
-            const { owner, repo } = context.repo;
-            const workflowRun = context.payload.workflow_run; // Corrected access to workflow_run
-
-            if (!workflowRun) {
-                console.error("workflow_run object is undefined in context.payload. This workflow was likely not triggered by a workflow_run event or the event data is missing.");
-                core.setFailed("Workflow run event data not found. Cannot proceed with artifact download.");
-                return;
-            }
-
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner,
-              repo,
-              run_id: workflowRun.id,
-            });
-
-            const artifactName = 'trivy-image-report'; // This matches the name you set in Project 4
-            const trivyImageArtifact = artifacts.data.artifacts.find(artifact => artifact.name === artifactName);
-
-            if (trivyImageArtifact) {
-              const download = await github.rest.actions.downloadArtifact({
-                owner,
-                repo,
-                artifact_id: trivyImageArtifact.id,
-                archive_format: 'zip',
-              });
-              const fs = require('fs');
-              const AdmZip = require('adm-zip');
-              const zip = new AdmZip(Buffer.from(download.data));
-              zip.extractAllTo('.', true);
-              console.log(`Successfully extracted ${artifactName}.zip`);
-            } else {
-              console.log(`No artifact found with name: ${artifactName}. This may mean Project 4 did not upload it or the name is incorrect.`);
-              // If not finding the artifact should be a failure, uncomment the next line
-              // core.setFailed(`Required artifact '${artifactName}' not found.`);
-            }
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: trivy-image-report 
+          path: . 
 
       - name: Read Trivy Image Scan Report (JSON) and Summarize
         id: read_report

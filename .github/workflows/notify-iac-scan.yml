@@ -15,48 +15,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Download Trivy Scan Artifact
-        uses: actions/github-script@v6
+      - name: Download Trivy IaC Report Artifact
+        uses: actions/download-artifact@v4 
         with:
-          script: |
-            const { owner, repo } = context.repo;
-            // Use context.payload.workflow_run for a more direct access within github-script
-            const workflowRun = context.payload.workflow_run;
-
-            if (!workflowRun) {
-                console.error("workflow_run object is undefined in context.payload. This workflow was likely not triggered by a workflow_run event or the event data is missing.");
-                core.setFailed("Workflow run event data not found. Cannot proceed with artifact download.");
-                return;
-            }
-
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner,
-              repo,
-              run_id: workflowRun.id,
-            });
-
-            const artifactName = 'trivy-iac-report'; // This matches the name you set in Project 2
-            const trivyArtifact = artifacts.data.artifacts.find(artifact => artifact.name === artifactName);
-
-            if (trivyArtifact) {
-              const download = await github.rest.actions.downloadArtifact({
-                owner,
-                repo,
-                artifact_id: trivyArtifact.id,
-                archive_format: 'zip',
-              });
-              const fs = require('fs');
-              const AdmZip = require('adm-zip');
-              const zip = new AdmZip(Buffer.from(download.data));
-              // Extract to current directory, overwriting if needed
-              zip.extractAllTo('.', true);
-              console.log(`Successfully extracted ${artifactName}.zip`);
-            } else {
-              console.log(`No artifact found with name: ${artifactName}. This may mean Project 2 did not upload it or the name is incorrect.`);
-              // If not finding the artifact should be a failure, uncomment the next line
-              // core.setFailed(`Required artifact '${artifactName}' not found.`);
-            }
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: trivy-iac-report 
+          path: .
 
       - name: Read Trivy Scan Report (JSON) and Summarize
         id: read_report
