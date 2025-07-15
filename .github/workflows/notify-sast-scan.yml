@@ -45,20 +45,20 @@ jobs:
           SLACK_USERNAME: GitHub Actions
 
       - name: Create Jira Issue
-        uses: ej-no/create-jira-issue@v1
+        uses: atlassian/gajira-create@v3 
         if: github.event.workflow_run.conclusion == 'failure' # Only create Jira issue on failure
         with:
-          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
-          jira-api-token: ${{ secrets.JIRA_API_TOKEN }}
-          jira-user-email: ${{ secrets.JIRA_USER_EMAIL }}
-          jira-project-key: ${{ secrets.JIRA_PROJECT_KEY }}
-          issue-summary: "SAST Scan Failed - Project 3: ${{ github.event.workflow_run.head_branch }}"
-          issue-description: |
-            A SAST scan failed for Project 3.
+          host: ${{ secrets.JIRA_BASE_URL }}
+          token: ${{ secrets.JIRA_API_TOKEN }}
+          username: ${{ secrets.JIRA_USER_EMAIL }}
+          project: ${{ secrets.JIRA_PROJECT_KEY }}
+          issue-type: 'Bug'
+          summary: "SAST Scan Failed - Project 3: ${{ github.event.workflow_run.head_branch }}"
+          description: |
+            A SAST security scan failed for Project 3.
             * Workflow Run: ${{ github.event.workflow_run.html_url }}
             * Repository: ${{ github.repository }}
             * Branch: ${{ github.event.workflow_run.head_branch }}
             * Commit SHA: ${{ github.event.workflow_run.head_sha }}
-            * Detailed Alerts: https://github.com/${{ github.repository }}/security/code-scanning?query=branch%3A${{ github.event.workflow_run.head_branch }}
-          issue-type: 'Bug'
-          priority: 'High'
+            * Scan Details:
+              ${{ steps.read_report.outputs.content }}
