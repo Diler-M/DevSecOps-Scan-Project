@@ -22,16 +22,13 @@ jobs:
             const { owner, repo } = context.repo;
             const workflowRun = github.event.workflow_run;
 
-            // Fetch workflow run artifacts
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
               owner,
               repo,
               run_id: workflowRun.id,
             });
 
-            // Assuming Trivy output is in a file and attached as an artifact
-            // You might need to adjust this based on how Trivy output is saved in Project 2
-            const trivyArtifact = artifacts.data.artifacts.find(artifact => artifact.name === 'trivy-iac-report'); // Name of the artifact from Project 2
+            const trivyArtifact = artifacts.data.artifacts.find(artifact => artifact.name === 'trivy-iac-report');
 
             if (trivyArtifact) {
               const download = await github.rest.actions.downloadArtifact({
@@ -41,24 +38,12 @@ jobs:
                 archive_format: 'zip',
               });
               const fs = require('fs');
-              const admZip = require('adm-zip');
-              const zip = new admZip(Buffer.from(download.data));
-              zip.extractAllTo('.');
+              const AdmZip = require('adm-zip'); // Corrected capitalization
+              const zip = new AdmZip(Buffer.from(download.data));
+              zip.extractAllTo('.', true);
             } else {
               console.log('No trivy-iac-report artifact found. Ensure Project 2 uploads it.');
             }
-
-      - name: Read Trivy Scan Report (if downloaded)
-        id: read_report
-        run: |
-          # This step assumes the Trivy report is extracted as a file, e.g., trivy_report.txt
-          # Adjust the filename based on how it's saved in Project 2
-          if [ -f "trivy_report.txt" ]; then
-            REPORT_CONTENT=$(cat trivy_report.txt)
-            echo "::set-output name=content::$REPORT_CONTENT"
-          else
-            echo "::set-output name=content::No detailed report found."
-          fi
 
       - name: Send Slack Notification
         uses: rtCamp/action-slack-notify@v2

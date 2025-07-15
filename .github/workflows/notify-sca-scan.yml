@@ -29,8 +29,8 @@ jobs:
               run_id: workflowRun.id,
             });
 
-            // Assuming Trivy image scan output is in a file and attached as an artifact
-            const trivyImageArtifact = artifacts.data.artifacts.find(artifact => artifact.name === 'trivy-image-report'); # Name of the artifact from Project 4
+            // Find the correct artifact
+            const trivyImageArtifact = artifacts.data.artifacts.find(artifact => artifact.name === 'trivy-image-report');
 
             if (trivyImageArtifact) {
               const download = await github.rest.actions.downloadArtifact({
@@ -40,9 +40,9 @@ jobs:
                 archive_format: 'zip',
               });
               const fs = require('fs');
-              const admZip = require('adm-zip');
-              const zip = new admZip(Buffer.from(download.data));
-              zip.extractAllTo('.');
+              const AdmZip = require('adm-zip'); // Corrected capitalization for the class
+              const zip = new AdmZip(Buffer.from(download.data));
+              zip.extractAllTo('.', true); // The 'true' overwrites if files exist
             } else {
               console.log('No trivy-image-report artifact found. Ensure Project 4 uploads it.');
             }
