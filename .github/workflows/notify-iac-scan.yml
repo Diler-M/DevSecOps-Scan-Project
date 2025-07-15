@@ -1,0 +1,99 @@
+name: Notify IaC Security Scan Results
+
+on:
+  workflow_run:
+    workflows: ["IaC Security Scan Project 2"] # Trigger on completion of IaC scan
+    types:
+      - completed
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download Trivy Scan Artifact
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const workflowRun = github.event.workflow_run;
+
+            // Fetch workflow run artifacts
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner,
+              repo,
+              run_id: workflowRun.id,
+            });
+
+            // Assuming Trivy output is in a file and attached as an artifact
+            // You might need to adjust this based on how Trivy output is saved in Project 2
+            const trivyArtifact = artifacts.data.artifacts.find(artifact => artifact.name === 'trivy-iac-report'); // Name of the artifact from Project 2
+
+            if (trivyArtifact) {
+              const download = await github.rest.actions.downloadArtifact({
+                owner,
+                repo,
+                artifact_id: trivyArtifact.id,
+                archive_format: 'zip',
+              });
+              const fs = require('fs');
+              const admZip = require('adm-zip');
+              const zip = new admZip(Buffer.from(download.data));
+              zip.extractAllTo('.');
+            } else {
+              console.log('No trivy-iac-report artifact found. Ensure Project 2 uploads it.');
+            }
+
+      - name: Read Trivy Scan Report (if downloaded)
+        id: read_report
+        run: |
+          # This step assumes the Trivy report is extracted as a file, e.g., trivy_report.txt
+          # Adjust the filename based on how it's saved in Project 2
+          if [ -f "trivy_report.txt" ]; then
+            REPORT_CONTENT=$(cat trivy_report.txt)
+            echo "::set-output name=content::$REPORT_CONTENT"
+          else
+            echo "::set-output name=content::No detailed report found."
+          fi
+
+      - name: Send Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: 'security-alerts'
+          SLACK_COLOR: ${{ github.event.workflow_run.conclusion == 'success' && 'good' || 'danger' }}
+          SLACK_MESSAGE: |
+            *IaC Security Scan Report - Project 2*
+            *Workflow:* ${{ github.event.workflow_run.name }} (#${{ github.event.workflow_run.run_number }})
+            *Status:* `${{ github.event.workflow_run.conclusion }}`
+            *Repo:* `${{ github.repository }}`
+            *Branch:* `${{ github.event.workflow_run.head_branch }}`
+            *Commit:* `${{ github.event.workflow_run.head_sha }}`
+            *Link:* ${{ github.event.workflow_run.html_url }}
+            *Summary:*
+            ${{ steps.read_report.outputs.content }}
+          SLACK_USERNAME: GitHub Actions
+
+      - name: Create Jira Issue
+        uses: ej-no/create-jira-issue@v1
+        if: github.event.workflow_run.conclusion == 'failure' # Only create Jira issue on failure
+        with:
+          jira-base-url: ${{ secrets.JIRA_BASE_URL }}
+          jira-api-token: ${{ secrets.JIRA_API_TOKEN }}
+          jira-user-email: ${{ secrets.JIRA_USER_EMAIL }}
+          jira-project-key: ${{ secrets.JIRA_PROJECT_KEY }}
+          issue-summary: "IaC Security Scan Failed - Project 2: ${{ github.event.workflow_run.head_branch }}"
+          issue-description: |
+            An IaC security scan failed for Project 2.
+            * Workflow Run: ${{ github.event.workflow_run.html_url }}
+            * Repository: ${{ github.repository }}
+            * Branch: ${{ github.event.workflow_run.head_branch }}
+            * Commit SHA: ${{ github.event.workflow_run.head_sha }}
+            * Scan Details:
+              ${{ steps.read_report.outputs.content }}
+          issue-type: 'Bug'
+          priority: 'High'

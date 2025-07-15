@@ -31,47 +31,19 @@ jobs:
       - name: Run Trivy vulnerability scanner in fs mode
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scanners: 'misconfig'
-          scan-ref: '.'
-          hide-progress: false
-          format: 'table'
-          ignore-unfixed: true
+           scan-type: 'fs'
+           scanners: 'misconfig'
+           scan-ref: '.'
+           hide-progress: false
+           format: 'json'
+           output: 'trivy-iac-report.json'
+           ignore-unfixed: true
 
-      - name: Save scan results for Slack and Jira
-        run: |
-          trivy config --format table --output trivy_iac_results.txt .
-
-      - name: Post IaC Scan Results to Slack
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          summary="*IaC Security Scan Completed*\nRepository: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nStatus: Completed.\n\n*Top Findings:*\n$(head -n 20 trivy_iac_results.txt)"
-          payload="{\"text\": \"$summary\"}"
-          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-      
-      - name: Create Jira Issue for IaC Scan Findings
-        uses: atlassian/gajira-create@v3
+      - name: Upload Trivy IaC Report Artifact
+        uses: actions/upload-artifact@v3
         with:
-          useEnvVars: true
-          project: ${{ secrets.JIRA_PROJECT_KEY }}
-          issuetype: 'Task'
-          summary: "[IaC Scan] Findings on ${{ github.repository }}@${{ github.ref_name }}"
-          description: |
-            The automated IaC security scan using Trivy has completed.
-
-            *Repository:* ${{ github.repository }}
-            *Branch:* ${{ github.ref_name }}
-
-            *Top Findings:*
-            ```
-            $(head -n 20 trivy_iac_results.txt)
-            ```
-
-            Please review full details in pipeline artifacts for remediation.
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+           name: trivy-iac-report
+           path: trivy-iac-report.json
+           retention-days: 5
 
 
