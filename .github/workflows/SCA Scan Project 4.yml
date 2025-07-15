@@ -49,3 +49,33 @@ jobs:
         hide-progress: false
         format: 'table'
         ignore-unfixed: true
+
+    - name: Post SCA Scan Results to Slack
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+          summary=$(echo -e "SCA Image Scan Completed\nRepository: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nStatus: Completed\n\nTop Findings:\n$(head -n 20 trivy_sca_results.txt)")
+          payload=$(jq -n --arg text "$summary" '{text: $text}')
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+    - name: Create Jira Issue for SCA Scan Findings
+      uses: atlassian/gajira-create@v3
+      with:
+          project: ${{ secrets.JIRA_PROJECT_KEY }}
+          summary: "[SCA Scan] Findings on ${{ github.repository }}@${{ github.ref_name }}"
+          description: |
+            The automated SCA image scan using Trivy has completed.
+
+            *Repository:* ${{ github.repository }}
+            *Branch:* ${{ github.ref_name }}
+
+            *Top Findings:*
+            ```
+            $(head -n 20 trivy_sca_results.txt)
+            ```
+
+            Please review full details in pipeline artifacts for remediation.
+      env:
+        JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+        JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+        JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
