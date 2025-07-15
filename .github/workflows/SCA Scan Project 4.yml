@@ -42,18 +42,11 @@ jobs:
     - name: Run Trivy vulnerability scanner in fs mode
       uses: aquasecurity/trivy-action@master
       with:
-            scan-type: 'image'
-            scanners: 'vuln'
-            image-ref: dilerm13/dockerproject_29-06-25:latest
-            scan-ref: '.'
-            hide-progress: false
-            format: 'json'
-            output: 'trivy-image-report.json'
-            ignore-unfixed: true
- 
-    - name: Upload Trivy Image Report Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: trivy-image-report
-        path: trivy-image-report.json
-        retention-days: 5
+        scan-type: 'image'
+        scanners: 'vuln'
+        image-ref: dilerm13/dockerproject_29-06-25:latest
+        scan-ref: '.'
+        hide-progress: false
+        format: 'table'
+        ignore-unfixed: true
+
