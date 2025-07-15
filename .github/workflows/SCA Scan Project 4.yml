@@ -43,10 +43,9 @@ jobs:
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: 'image'
-        scanners: 'vuln'
+        scanners: 'vuln' 
         image-ref: dilerm13/dockerproject_29-06-25:latest
         scan-ref: '.'
         hide-progress: false
         format: 'table'
         ignore-unfixed: true
-
