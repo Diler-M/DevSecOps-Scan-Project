@@ -2,7 +2,7 @@ name: Notify IaC Security Scan Results
 
 on:
   workflow_run:
-    workflows: ["IaC Security Scan Project 2"] # Trigger on completion of IaC scan
+    workflows: ["IaC Security Scan Project 2"]
     types:
       - completed
 
@@ -20,7 +20,14 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const workflowRun = github.event.workflow_run;
+            // Use context.payload.workflow_run for a more direct access within github-script
+            const workflowRun = context.payload.workflow_run;
+
+            if (!workflowRun) {
+                console.error("workflow_run object is undefined in context.payload. This workflow was likely not triggered by a workflow_run event or the event data is missing.");
+                core.setFailed("Workflow run event data not found. Cannot proceed with artifact download.");
+                return;
+            }
 
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
               owner,
@@ -28,7 +35,8 @@ jobs:
               run_id: workflowRun.id,
             });
 
-            const trivyArtifact = artifacts.data.artifacts.find(artifact => artifact.name === 'trivy-iac-report');
+            const artifactName = 'trivy-iac-report'; // This matches the name you set in Project 2
+            const trivyArtifact = artifacts.data.artifacts.find(artifact => artifact.name === artifactName);
 
             if (trivyArtifact) {
               const download = await github.rest.actions.downloadArtifact({
@@ -38,18 +46,48 @@ jobs:
                 archive_format: 'zip',
               });
               const fs = require('fs');
-              const AdmZip = require('adm-zip'); // Corrected capitalization
+              const AdmZip = require('adm-zip');
               const zip = new AdmZip(Buffer.from(download.data));
+              // Extract to current directory, overwriting if needed
               zip.extractAllTo('.', true);
+              console.log(`Successfully extracted ${artifactName}.zip`);
             } else {
-              console.log('No trivy-iac-report artifact found. Ensure Project 2 uploads it.');
+              console.log(`No artifact found with name: ${artifactName}. This may mean Project 2 did not upload it or the name is incorrect.`);
+              // If not finding the artifact should be a failure, uncomment the next line
+              // core.setFailed(`Required artifact '${artifactName}' not found.`);
             }
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read Trivy Scan Report (JSON) and Summarize
+        id: read_report
+        run: |
+          REPORT_FILE="trivy-iac-report.json"
+          if [ -f "$REPORT_FILE" ]; then
+            # Extract high-level summary (e.g., number of critical/high misconfigurations)
+            # You can customize this 'jq' command to extract specific details you need.
+            # This example counts misconfigurations by severity.
+            SUMMARY_CONTENT=$(jq -r '
+              .Results[] | select(.Misconfigurations != null) | .Misconfigurations[] |
+              "  \(.Type // "") [\(.Severity // "UNKNOWN")] \(.Title // .Description // "") - \(.AVD_ID // "")"
+            ' "$REPORT_FILE" | head -n 10 | sed "s/^/    /" ; \
+            echo "---" ; \
+            echo "Total Misconfigurations by Severity:")
+            
+            SEVERITY_COUNTS=$(jq -r '
+              .Results[] | select(.Misconfigurations != null) | .Misconfigurations[] | .Severity // "UNKNOWN"
+            ' "$REPORT_FILE" | sort | uniq -c | awk '{print "    - "$2": "$1}')
+            
+            FULL_SUMMARY="${SUMMARY_CONTENT}\n${SEVERITY_COUNTS}\n\nFull report available as artifact."
+            echo "::set-output name=content::$FULL_SUMMARY"
+          else
+            echo "::set-output name=content::No detailed JSON report found. Check Project 2 logs or artifact uploads."
+          fi
 
       - name: Send Slack Notification
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: 'security-alerts'
+          SLACK_CHANNEL: '#security-alerts'
           SLACK_COLOR: ${{ github.event.workflow_run.conclusion == 'success' && 'good' || 'danger' }}
           SLACK_MESSAGE: |
             *IaC Security Scan Report - Project 2*
@@ -64,7 +102,7 @@ jobs:
           SLACK_USERNAME: GitHub Actions
 
       - name: Create Jira Issue
-        uses: atlassian/gajira-create@v3 
+        uses: atlassian/gajira-create@v3
         if: github.event.workflow_run.conclusion == 'failure' # Only create Jira issue on failure
         with:
           host: ${{ secrets.JIRA_BASE_URL }}
@@ -81,3 +119,4 @@ jobs:
             * Commit SHA: ${{ github.event.workflow_run.head_sha }}
             * Scan Details:
               ${{ steps.read_report.outputs.content }}
+          priority: 'High'

@@ -2,7 +2,7 @@ name: Notify SAST Scan Results
 
 on:
   workflow_run:
-    workflows: ["SAST Scan Project 3"] 
+    workflows: ["SAST Scan Project 3"]
     types:
       - completed
 
@@ -18,10 +18,6 @@ jobs:
       - name: Get CodeQL Analysis Summary
         id: codeql_summary
         run: |
-          # CodeQL results are typically visible in the "Security" tab of the repository
-          # and also in the workflow run summary.
-          # For a detailed report, you'd ideally use the GitHub API to fetch SARIF files
-          # but this is more complex. For simplicity, we'll summarize from the workflow run.
           SUMMARY="CodeQL scan for ${{ github.event.workflow_run.head_branch }} completed with status: ${{ github.event.workflow_run.conclusion }}.
           For detailed alerts, check the Security tab: https://github.com/${{ github.repository }}/security/code-scanning?query=branch%3A${{ github.event.workflow_run.head_branch }}"
           echo "::set-output name=content::$SUMMARY"
@@ -45,7 +41,7 @@ jobs:
           SLACK_USERNAME: GitHub Actions
 
       - name: Create Jira Issue
-        uses: atlassian/gajira-create@v3 
+        uses: atlassian/gajira-create@v3
         if: github.event.workflow_run.conclusion == 'failure' # Only create Jira issue on failure
         with:
           host: ${{ secrets.JIRA_BASE_URL }}
@@ -57,8 +53,8 @@ jobs:
           description: |
             A SAST security scan failed for Project 3.
             * Workflow Run: ${{ github.event.workflow_run.html_url }}
-            * Repository: ${{ github.repository }}
+            * Repository: ${{ github.repository }}`
             * Branch: ${{ github.event.workflow_run.head_branch }}
             * Commit SHA: ${{ github.event.workflow_run.head_sha }}
-            * Scan Details:
-              ${{ steps.read_report.outputs.content }}
+            * Detailed Alerts: https://github.com/${{ github.repository }}/security/code-scanning?query=branch%3A${{ github.event.workflow_run.head_branch }}
+          priority: 'High'
